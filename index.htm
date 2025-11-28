@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公司晚會小遊戲</title>
+    
+    <!-- 引入 React 核心 -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel 解析器 (讓瀏覽器能看懂 React 語法) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 引入 Tailwind CSS 樣式庫 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        .animate-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes popIn {
+          0% { transform: scale(0.5); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+  }
+}
+</script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+    <div id="root"></div>
+
+    <!-- 這裡開始是完整的遊戲程式碼 -->
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // --- 工具函數 ---
+        const formatTime = (seconds) => {
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return [
+                hrs.toString().padStart(2, '0'),
+                mins.toString().padStart(2, '0'),
+                secs.toString().padStart(2, '0')
+            ].join(':');
+        };
+
+        const shuffleArray = (array) => {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        };
+
+        // --- 圖標組件 (直接內嵌，不用下載任何套件) ---
+        const Icons = {
+            Package: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>,
+            TestTube: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5h0c-1.4 0-2.5-1.1-2.5-2.5V2"/><path d="M8.5 2h7"/><path d="M14.5 16h-5"/></svg>,
+            ShoppingBag: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>,
+            Banknote: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>,
+            Pen: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>,
+            User: () => <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            TriangleAlert: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>,
+            RefreshCcw: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>,
+            CircleHelp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>,
+            Lock: () => <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+            Gamepad2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>
+        };
+
+        // --- 第一關組件 ---
+        const PAIRS = [
+            { id: 'warehouse', avatarLabel: '倉庫大哥頭像', iconLabel: '紙箱圖示', icon: <Icons.Package />, color: 'bg-blue-500' },
+            { id: 'materials', avatarLabel: '物料大姊頭像', iconLabel: '針劑瓶圖示', icon: <Icons.TestTube />, color: 'bg-purple-500' },
+            { id: 'raw', avatarLabel: '原料大哥頭像', iconLabel: '袋裝原料圖示', icon: <Icons.ShoppingBag />, color: 'bg-amber-600' },
+            { id: 'accounting', avatarLabel: '會計大姊頭像', iconLabel: '鈔票圖示', icon: <Icons.Banknote />, color: 'bg-green-600' },
+            { id: 'admin', avatarLabel: '行政妹妹頭像', iconLabel: '原子筆圖示', icon: <Icons.Pen />, color: 'bg-pink-500' }
+        ];
+
+        const StageOne = ({ onComplete }) => {
+            const [elapsedTime, setElapsedTime] = useState(0);
+            const [isTimerRunning, setIsTimerRunning] = useState(true);
+            const [leftItems, setLeftItems] = useState([]);
+            const [rightItems, setRightItems] = useState([]);
+            const [selectedLeft, setSelectedLeft] = useState(null);
+            const [selectedRight, setSelectedRight] = useState(null);
+            const [matchedIds, setMatchedIds] = useState(new Set());
+            const [mistakeFlash, setMistakeFlash] = useState(false);
+            const [finishedTime, setFinishedTime] = useState(null);
+
+            const initGame = useCallback(() => {
+                const left = PAIRS.map(p => ({
+                    id: `left-${p.id}`, matchId: p.id, label: p.avatarLabel,
+                    type: 'avatar', icon: <Icons.User />, color: 'bg-slate-700'
+                }));
+                const right = PAIRS.map(p => ({
+                    id: `right-${p.id}`, matchId: p.id, label: p.iconLabel,
+                    type: 'icon', icon: p.icon, color: 'bg-slate-700'
+                }));
+                setLeftItems(shuffleArray(left));
+                setRightItems(shuffleArray(right));
+                setMatchedIds(new Set());
+                setSelectedLeft(null);
+                setSelectedRight(null);
+            }, []);
+
+            useEffect(() => { initGame(); }, [initGame]);
+
+            useEffect(() => {
+                let interval;
+                if (isTimerRunning) {
+                    interval = setInterval(() => setElapsedTime(p => p + 1), 1000);
+                }
+                return () => clearInterval(interval);
+            }, [isTimerRunning]);
+
+            const handleReset = () => {
+                setMistakeFlash(true);
+                setTimeout(() => setMistakeFlash(false), 500);
+                initGame();
+            };
+
+            const checkMatch = (leftId, rightId) => {
+                const leftItem = leftItems.find(i => i.id === leftId);
+                const rightItem = rightItems.find(i => i.id === rightId);
+
+                if (leftItem && rightItem && leftItem.matchId === rightItem.matchId) {
+                    const newMatched = new Set(matchedIds);
+                    newMatched.add(leftItem.matchId);
+                    setMatchedIds(newMatched);
+                    setSelectedLeft(null);
+                    setSelectedRight(null);
+                    if (newMatched.size === PAIRS.length) {
+                        setIsTimerRunning(false);
+                        setFinishedTime(formatTime(elapsedTime));
+                    }
+                } else {
+                    handleReset();
+                }
+            };
+
+            const handleLeftClick = (id) => {
+                if (matchedIds.has(leftItems.find(i => i.id === id)?.matchId)) return;
+                setSelectedLeft(id);
+                if (selectedRight) checkMatch(id, selectedRight);
+            };
+
+            const handleRightClick = (id) => {
+                if (matchedIds.has(rightItems.find(i => i.id === id)?.matchId)) return;
+                setSelectedRight(id);
+                if (selectedLeft) checkMatch(selectedLeft, id);
+            };
+
+            if (finishedTime) {
+                return (
+                    <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in space-y-8">
+                        <h2 className="text-4xl font-bold text-green-400">第一關 完成！</h2>
+                        <div className="text-6xl font-mono bg-slate-800 px-8 py-4 rounded-xl border-2 border-green-500 shadow-lg shadow-green-500/20">
+                            {finishedTime}
+                        </div>
+                        <p className="text-gray-400">請準備進入下一階段...</p>
+                        <button onClick={onComplete} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-xl transition-all transform hover:scale-105">
+                            輸入密碼
+                        </button>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`relative max-w-4xl mx-auto p-4 ${mistakeFlash ? 'animate-shake' : ''}`}>
+                    {mistakeFlash && (
+                        <div className="fixed inset-0 bg-red-500/20 z-50 pointer-events-none flex items-center justify-center">
+                            <div className="bg-red-600 text-white px-6 py-4 rounded-xl font-bold text-2xl shadow-xl flex items-center gap-3">
+                                <Icons.TriangleAlert /> 配對錯誤！全部重來！
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex justify-between items-center mb-8 bg-slate-800 p-4 rounded-xl shadow-lg">
+                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                            <Icons.RefreshCcw /> 第一環節：對對樂
+                        </h2>
+                        <div className="text-3xl font-mono font-bold text-yellow-400">{formatTime(elapsedTime)}</div>
+                    </div>
+                    <div className="text-center mb-4 text-gray-400 text-sm">
+                        <span className="text-red-400 font-bold">注意：</span> 點選錯誤將會重置所有牌卡！
+                    </div>
+                    <div className="flex gap-4 md:gap-12 justify-center">
+                        <div className="flex flex-col gap-3 flex-1">
+                            <h3 className="text-center text-lg font-semibold text-indigo-300 mb-2">人物頭像</h3>
+                            {leftItems.map((item) => {
+                                const isMatched = matchedIds.has(item.matchId);
+                                if (isMatched) return <div key={item.id} className="h-20" />;
+                                const isSelected = selectedLeft === item.id;
+                                const originalPair = PAIRS.find(p => p.id === item.matchId);
+                                return (
+                                    <button key={item.id} onClick={() => handleLeftClick(item.id)}
+                                        className={`relative group h-20 w-full rounded-xl flex items-center px-4 gap-4 transition-all duration-200 ${isSelected ? 'bg-indigo-600 ring-4 ring-indigo-400 scale-105 z-10' : 'bg-slate-800 hover:bg-slate-700'} border-2 border-slate-700`}>
+                                        <div className={`p-2 rounded-full ${originalPair?.color} text-white shadow-lg`}>{item.icon}</div>
+                                        <span className="text-lg font-bold text-slate-100">{item.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="flex flex-col gap-3 flex-1">
+                            <h3 className="text-center text-lg font-semibold text-emerald-300 mb-2">物品圖示</h3>
+                            {rightItems.map((item) => {
+                                const isMatched = matchedIds.has(item.matchId);
+                                if (isMatched) return <div key={item.id} className="h-20" />;
+                                const isSelected = selectedRight === item.id;
+                                return (
+                                    <button key={item.id} onClick={() => handleRightClick(item.id)}
+                                        className={`relative group h-20 w-full rounded-xl flex items-center justify-end px-4 gap-4 transition-all duration-200 ${isSelected ? 'bg-indigo-600 ring-4 ring-indigo-400 scale-105 z-10' : 'bg-slate-800 hover:bg-slate-700'} border-2 border-slate-700`}>
+                                        <span className="text-lg font-bold text-slate-100">{item.label}</span>
+                                        <div className="p-2 rounded-lg bg-slate-600 text-white shadow-inner">{item.icon}</div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 密碼關卡 ---
+        const PasswordGate = ({ onSuccess }) => {
+            const [input, setInput] = useState('');
+            const [error, setError] = useState(false);
+            const CORRECT_PASSWORD = '8245';
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (input === CORRECT_PASSWORD) {
+                    onSuccess();
+                } else {
+                    setError(true);
+                    setInput('');
+                    setTimeout(() => setError(false), 800);
+                }
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center min-h-[50vh] animate-fade-in">
+                    <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+                        <div className="flex justify-center mb-6">
+                            <div className="p-4 bg-indigo-600 rounded-full shadow-lg"><Icons.Lock /></div>
+                        </div>
+                        <h2 className="text-2xl font-bold text-center mb-6 text-white">請輸入第二階段密碼</h2>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div className={`relative transition-transform ${error ? 'animate-shake' : ''}`}>
+                                <input type="password" inputMode="numeric" maxLength="4" value={input} onChange={(e) => setInput(e.target.value)}
+                                    className="w-full text-center text-4xl tracking-[0.5em] py-4 bg-slate-900 border-2 border-slate-600 rounded-xl focus:border-indigo-500 focus:outline-none text-white placeholder-slate-700"
+                                    placeholder="••••" autoFocus />
+                            </div>
+                            {error && <p className="text-red-500 text-center font-bold">密碼錯誤，請重試！</p>}
+                            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xl rounded-xl transition-colors shadow-lg">解鎖進入</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 第二關組件 ---
+        const StageTwo = ({ onComplete }) => {
+            const ITEMS = [
+                { id: 'A', label: '商品 A', color: 'bg-red-500' },
+                { id: 'B', label: '商品 B', color: 'bg-orange-500' },
+                { id: 'C', label: '商品 C', color: 'bg-yellow-500' },
+                { id: 'D', label: '商品 D', color: 'bg-green-500' },
+                { id: 'E', label: '商品 E', color: 'bg-blue-500' },
+            ];
+            const CORRECT_SEQUENCE = ['A', 'B', 'C', 'D', 'E'];
+
+            const [elapsedTime, setElapsedTime] = useState(0);
+            const [isTimerRunning, setIsTimerRunning] = useState(true);
+            const [availableItems, setAvailableItems] = useState([]);
+            const [selectedItems, setSelectedItems] = useState([]);
+            const [redCircles, setRedCircles] = useState(null);
+            const [isFinished, setIsFinished] = useState(false);
+
+            useEffect(() => { setAvailableItems(shuffleArray([...ITEMS])); }, []);
+
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    if (isTimerRunning) setElapsedTime(p => p + 1);
+                }, 1000);
+                return () => clearInterval(interval);
+            }, [isTimerRunning]);
+
+            const handleSelect = (item) => {
+                if (selectedItems.length >= 5 || redCircles !== null) return;
+                const newSelected = [...selectedItems, item];
+                setSelectedItems(newSelected);
+                setAvailableItems(prev => prev.filter(i => i.id !== item.id));
+                if (newSelected.length === 5) checkResult(newSelected);
+            };
+
+            const checkResult = (finalSequence) => {
+                let correctCount = 0;
+                finalSequence.forEach((item, index) => {
+                    if (item.id === CORRECT_SEQUENCE[index]) correctCount++;
+                });
+                setRedCircles(correctCount);
+                if (correctCount === 5) {
+                    setIsFinished(true);
+                    setIsTimerRunning(false);
+                    onComplete();
+                }
+            };
+
+            const handleRetry = () => {
+                setSelectedItems([]);
+                setAvailableItems(shuffleArray([...ITEMS]));
+                setRedCircles(null);
+            };
+
+            if (isFinished) {
+                return (
+                    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-fade-in">
+                        <h2 className="text-5xl font-bold text-red-500">遊戲通關！</h2>
+                        <div className="flex gap-4 mb-4">
+                            {[1, 2, 3, 4, 5].map(i => (
+                                <div key={i} className="w-8 h-8 rounded-full bg-red-600 animate-bounce" style={{ animationDelay: `${i * 100}ms` }} />
+                            ))}
+                        </div>
+                        <div className="text-7xl font-mono bg-slate-800 px-10 py-6 rounded-2xl border-4 border-red-500 shadow-2xl shadow-red-500/30">
+                            {formatTime(elapsedTime)}
+                        </div>
+                        <p className="text-xl text-gray-300">恭喜完成所有挑戰！</p>
+                        <button onClick={() => window.location.reload()} className="mt-8 px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-colors">
+                            重新開始遊戲
+                        </button>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-3xl mx-auto p-4">
+                    <div className="flex justify-between items-center mb-8 bg-slate-800 p-4 rounded-xl shadow-lg">
+                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                            <Icons.CircleHelp /> 第二環節：順序排列
+                        </h2>
+                        <div className="text-3xl font-mono font-bold text-yellow-400">{formatTime(elapsedTime)}</div>
+                    </div>
+                    <p className="text-center text-gray-300 mb-6 text-lg">
+                        請依正確順序點選 <span className="font-bold text-white">ABCDE</span> 五個商品
+                    </p>
+                    <div className="bg-slate-800/80 p-6 rounded-2xl border-2 border-slate-600 mb-8 min-h-[140px] flex items-center justify-center">
+                        <div className="flex gap-2 md:gap-4">
+                            {Array.from({ length: 5 }).map((_, index) => {
+                                const item = selectedItems[index];
+                                return (
+                                    <div key={index} className={`w-16 h-16 md:w-24 md:h-24 rounded-xl border-2 border-dashed border-slate-600 flex items-center justify-center bg-slate-900/50 transition-all duration-300 ${item ? 'border-solid border-indigo-500 scale-100 opacity-100' : 'opacity-50'}`}>
+                                        {item && <div className={`w-full h-full rounded-lg ${item.color} flex flex-col items-center justify-center text-white shadow-lg animate-pop-in`}><span className="text-2xl font-bold">{item.id}</span></div>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    {redCircles !== null && !isFinished && (
+                        <div className="mb-8 flex flex-col items-center animate-fade-in">
+                            <div className="flex items-center gap-3 mb-4 bg-slate-900 px-6 py-3 rounded-xl border border-slate-700">
+                                <span className="text-white font-bold text-lg">位置正確：</span>
+                                <div className="flex gap-2">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <div key={i} className={`w-6 h-6 rounded-full border-2 border-red-600 transition-all ${i < redCircles ? 'bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.8)]' : 'bg-transparent opacity-30'}`} />
+                                    ))}
+                                </div>
+                            </div>
+                            <button onClick={handleRetry} className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xl shadow-lg transition-transform active:scale-95">
+                                <Icons.RefreshCcw /> 順序錯誤 - 重試
+                            </button>
+                        </div>
+                    )}
+                    <div className="grid grid-cols-5 gap-2 md:gap-4 mt-auto">
+                        {availableItems.map((item) => (
+                            <button key={item.id} onClick={() => handleSelect(item)} disabled={redCircles !== null}
+                                className={`h-24 md:h-32 rounded-xl ${item.color} flex flex-col items-center justify-center gap-2 text-white font-bold shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}>
+                                <span className="text-3xl md:text-4xl">{item.id}</span>
+                                <span className="text-xs md:text-sm opacity-90">{item.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 主程式 ---
+        const App = () => {
+            const [stage, setStage] = useState(0);
+
+            return (
+                <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+                    <header className="bg-slate-800 border-b border-slate-700 p-4 shadow-lg z-10">
+                        <div className="container mx-auto flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-lg shadow"><Icons.Gamepad2 /></div>
+                                <h1 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">公司晚會小遊戲</h1>
+                            </div>
+                            <div className="text-sm font-medium text-slate-400 px-3 py-1 bg-slate-900 rounded-full border border-slate-700">
+                                {stage === 0 && "第一階段：連連看"}
+                                {stage === 1 && "中場休息"}
+                                {stage === 2 && "第二階段：排序"}
+                            </div>
+                        </div>
+                    </header>
+                    <main className="flex-grow container mx-auto px-4 py-8">
+                        <div className="w-full max-w-5xl mx-auto">
+                            {stage === 0 && <StageOne onComplete={() => setStage(1)} />}
+                            {stage === 1 && <PasswordGate onSuccess={() => setStage(2)} />}
+                            {stage === 2 && <StageTwo onComplete={() => {}} />}
+                        </div>
+                    </main>
+                    <footer className="p-4 text-center text-slate-500 text-sm">
+                        <p>© {new Date().getFullYear()} 公司聚餐晚會專用</p>
+                    </footer>
+                </div>
+            );
+        };
+
+        // --- 啟動 React ---
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
