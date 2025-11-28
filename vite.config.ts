@@ -4,9 +4,10 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // 非常重要：這必須匹配您的 GitHub Repository 名稱
-  base: '/HTP-GAMES/', 
+  // 使用相對路徑 './' 可以自動適應任何儲存庫名稱，解決白畫面問題
+  base: './', 
   build: {
     outDir: 'dist',
+    assetsDir: 'assets',
   }
 });
